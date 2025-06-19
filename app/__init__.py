@@ -39,7 +39,7 @@ def create_app():
     jwt.init_app(app)
     migrate.init_app(app, db)
     mail.init_app(app)
-    CORS(app)
+    CORS(app, supports_credentials=True)  # <--- Cambia aquí
 
     # Importar modelos después de inicializar extensiones (para evitar importación circular)
     from app.models.task import Task

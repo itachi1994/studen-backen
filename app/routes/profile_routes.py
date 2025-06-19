@@ -34,11 +34,16 @@ def manage_profile():
     profile.university = data['university']
     profile.academic_program = data['academic_program']
     profile.current_semester = data['current_semester']
-    
+
     if 'enrollment_number' in data:
         profile.enrollment_number = data['enrollment_number']
     if 'phone' in data:
         profile.phone = data['phone']
+    # Guardar credenciales SIMA si se envían
+    if 'sima_username' in data:
+        profile.sima_username = data['sima_username']
+    if 'sima_password' in data:
+        profile.sima_password = data['sima_password']
     
     db.session.commit()
     

@@ -13,6 +13,9 @@ class UserProfile(db.Model):
     current_semester = db.Column(db.Integer, nullable=False)
     enrollment_number = db.Column(db.String(50))
     phone = db.Column(db.String(20))
+    # Campos para SIMA
+    sima_username = db.Column(db.String(100))
+    sima_password = db.Column(db.String(100))
     
     # Relación
     user = db.relationship('User', backref=db.backref('profile', uselist=False))

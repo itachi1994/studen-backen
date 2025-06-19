@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models.task import Task
 from datetime import datetime, timedelta
@@ -86,7 +86,7 @@ def dashboard_summary():
         {
             "id": t.id,
             "title": t.title,
-            "due_date": t.due_date.isoformat(),
+            "due_date": t.due_date.isoformat() if t.due_date else None,
             "priority": t.priority
         }
         for t in tasks if t.priority == 'high'
@@ -96,7 +96,7 @@ def dashboard_summary():
         {
             "id": t.id,
             "title": t.title,
-            "due_date": t.due_date.isoformat(),
+            "due_date": t.due_date.isoformat() if t.due_date else None,
             "priority": t.priority
         }
         for t in tasks
@@ -122,8 +122,49 @@ def dashboard_summary():
                 "url": e.url
             })
 
+    # Log para depuración
+    print(f"[DEBUG] user_id={user_id} tasks={len(tasks)} eventos={len(eventos)}")
+
     return jsonify({
         "urgent_tasks": urgent_tasks,
         "upcoming_tasks": upcoming_tasks,
-        "upcoming_events": eventos
+        "upcoming_events": eventos,
+        "debug_counts": {
+            "urgent_tasks": len(urgent_tasks),
+            "upcoming_tasks": len(upcoming_tasks),
+            "upcoming_events": len(eventos)
+        }
     }), 200
+
+from flask import request
+
+@dashboard_bp.route('/events', methods=['GET', 'OPTIONS'])
+@jwt_required()
+def get_all_events():
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    mes = (request.args.get("mes") or "").strip().lower()
+    ano = (request.args.get("ano") or "").strip()
+    query = Evento.query
+
+    if mes and ano:
+        filtro_mes_ano = f"{mes} {ano}"
+        query = query.filter(Evento.mes_ano.ilike(f"%{filtro_mes_ano}%"))
+    elif mes:
+        query = query.filter(Evento.mes_ano.ilike(f"%{mes}%"))
+    elif ano:
+        query = query.filter(Evento.mes_ano.ilike(f"%{ano}%"))
+
+    eventos = query.order_by(Evento.mes_ano, Evento.dia).all()
+    eventos_list = [
+        {
+            "nombre": e.nombre,
+            "dia": e.dia,
+            "mes_ano": e.mes_ano,
+            "curso_nombre": e.curso_nombre,
+            "url": e.url
+        }
+        for e in eventos
+    ]
+    return jsonify(eventos_list), 200

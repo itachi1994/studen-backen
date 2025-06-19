@@ -3,7 +3,12 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.task import Task
 from app.models.evento import Evento
+from app.models.chat_message import ChatMessage
+from app.models.chat_message_schema import ChatMessageSchema
+from app.models.comment import Comment
+from app.models.comment_schema import CommentSchema
 from datetime import datetime, timedelta
+from app.utils.deepseek_api import get_related_resources
 
 user_extra_bp = Blueprint('user_extra', __name__)
 
@@ -89,73 +94,103 @@ def chatbot_message():
     user_id = get_jwt_identity()
     data = request.get_json()
     message = data.get("message", "")
-
     msg_lower = message.lower()
 
-    # Tareas pendientes esta semana
-    if "pendiente" in msg_lower or "tengo que hacer" in msg_lower:
-        now = datetime.utcnow()
-        week_later = now + timedelta(days=7)
-        tasks = Task.query.filter_by(user_id=user_id, status='pending').filter(
-            Task.due_date >= now, Task.due_date <= week_later
-        ).order_by(Task.due_date.asc()).all()
-        if not tasks:
-            reply = "No tienes tareas pendientes para esta semana. ¡Buen trabajo!"
-        else:
-            reply = "Tienes estas tareas pendientes esta semana:\n" + "\n".join(
-                f"- {t.title} (vence {t.due_date.strftime('%Y-%m-%d')})" for t in tasks
-            )
+    # Reinicio de conversación si el mensaje es "reiniciar" o similar
+    if "reiniciar" in msg_lower or "borrar" in msg_lower:
+        ChatMessage.query.filter_by(user_id=user_id).delete()
+        db.session.commit()
+        reply = "¡Conversación reiniciada! ¿En qué puedo ayudarte ahora?"
+        bot_msg = ChatMessage(user_id=user_id, sender="bot", message=reply)
+        db.session.add(bot_msg)
+        db.session.commit()
         return jsonify({"reply": reply}), 200
 
-    # Eventos próximos esta semana
-    if "evento" in msg_lower or "clase" in msg_lower or "agenda" in msg_lower:
-        today = datetime.utcnow()
-        eventos = []
-        for delta in range(0, 8):
-            check_date = today + timedelta(days=delta)
-            dia = str(check_date.day)
-            mes_ano = check_date.strftime("%B %Y").lower()
-            evs = Evento.query.filter(
-                Evento.dia == dia,
-                Evento.mes_ano.ilike(f"%{mes_ano}%")
-            ).all()
-            for e in evs:
-                eventos.append(f"- {e.nombre} ({e.curso_nombre}) el {e.dia} de {e.mes_ano}")
-        if not eventos:
-            reply = "No tienes eventos próximos en tu agenda esta semana."
-        else:
-            reply = "Tus eventos próximos esta semana:\n" + "\n".join(eventos)
+    # Guarda el mensaje del usuario
+    user_msg = ChatMessage(user_id=user_id, sender="user", message=message)
+    db.session.add(user_msg)
+    db.session.commit()
+
+    # Siempre consulta DeepSeek para cualquier mensaje
+    try:
+        prompt = f"Responde como tutor universitario: {message}"
+        from app.utils.deepseek_api import get_related_resources
+        response = get_related_resources(prompt)
+        bot_msg = ChatMessage(user_id=user_id, sender="bot", message=response)
+        db.session.add(bot_msg)
+        db.session.commit()
+        return jsonify({"reply": response}), 200
+    except Exception:
+        reply = "No pude consultar la IA en este momento. Intenta más tarde."
+        bot_msg = ChatMessage(user_id=user_id, sender="bot", message=reply)
+        db.session.add(bot_msg)
+        db.session.commit()
         return jsonify({"reply": reply}), 200
 
-    # Estadísticas de avance
-    if "avance" in msg_lower or "progreso" in msg_lower or "cómo voy" in msg_lower:
-        now = datetime.utcnow()
-        week_ago = now - timedelta(days=7)
-        tasks = Task.query.filter(Task.user_id == user_id, Task.created_at >= week_ago).all()
-        done = [t for t in tasks if t.status == 'done']
-        pending = [t for t in tasks if t.status != 'done']
-        percent = int((len(done) / len(tasks)) * 100) if tasks else 0
-        reply = f"Esta semana completaste el {percent}% de tus tareas ({len(done)} completadas, {len(pending)} pendientes)."
-        return jsonify({"reply": reply}), 200
+# Modelo simple para mensajes de soporte (puedes crear una tabla real si lo deseas)
+support_messages = []
 
-    # Si la pregunta es académica, usa DeepSeek
-    academic_keywords = ["organizar", "recurso", "tarea", "examen", "tema", "repaso", "quiz", "horario"]
-    if any(word in msg_lower for word in academic_keywords):
-        try:
-            # Puedes ajustar el prompt para DeepSeek según el mensaje
-            prompt = f"Soy un estudiante universitario. {message} Dame una respuesta personalizada y motivacional."
-            from app.utils.deepseek_api import get_related_resources
-            response = get_related_resources(prompt)
-            return jsonify({"reply": response}), 200
-        except Exception:
-            return jsonify({"reply": "No pude consultar la IA en este momento. Intenta más tarde."}), 200
+@user_extra_bp.route('/user/support', methods=['POST'])
+@jwt_required()
+def send_support_message():
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    message = data.get("message", "")
+    if not message:
+        return jsonify({"error": "El mensaje no puede estar vacío."}), 400
+    support_messages.append({
+        "user_id": user_id,
+        "message": message,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+    return jsonify({"status": "ok", "message": "Tu mensaje de soporte fue recibido. Un asesor te contactará pronto."}), 200
 
-    # Respuestas motivacionales básicas
-    if "hola" in msg_lower:
-        reply = "¡Hola! ¿En qué puedo ayudarte con tus estudios hoy?"
-    elif "gracias" in msg_lower:
-        reply = "¡De nada! Recuerda que la constancia es clave para el éxito académico."
-    else:
-        reply = "Estoy aquí para ayudarte a organizarte y motivarte. Pregúntame sobre tus tareas, eventos, progreso o técnicas de estudio."
+@user_extra_bp.route('/user/support/history', methods=['GET'])
+@jwt_required()
+def get_support_history():
+    user_id = get_jwt_identity()
+    history = [msg for msg in support_messages if msg["user_id"] == user_id]
+    return jsonify(history), 200
 
-    return jsonify({"reply": reply}), 200
+@user_extra_bp.route('/user/chatbot/history', methods=['GET'])
+@jwt_required()
+def chatbot_history():
+    user_id = get_jwt_identity()
+    messages = ChatMessage.query.filter_by(user_id=user_id).order_by(ChatMessage.created_at.asc()).all()
+    return ChatMessageSchema(many=True).jsonify(messages), 200
+
+@user_extra_bp.route('/user/help', methods=['GET'])
+def user_help():
+    ayuda = {
+        "bienvenida": (
+            "Bienvenido a la plataforma de Gestión de Tiempo Universitario de la Universidad de Cartagena. "
+            "Aquí podrás organizar tus tareas, eventos, recibir recordatorios y consultar recursos académicos."
+        ),
+        "tips": [
+            "Utiliza el chatbot para resolver dudas académicas o pedir recursos de estudio.",
+            "Filtra tus eventos por mes y año para ver tu agenda de manera clara.",
+            "Activa el modo enfocado para evitar distracciones mientras estudias.",
+            "Consulta tu progreso semanal y recibe retroalimentación personalizada.",
+            "Adjunta archivos y agrega comentarios a tus tareas para un mejor seguimiento."
+        ],
+        "faq": [
+            {
+                "pregunta": "¿Cómo registro mis credenciales de SIMA?",
+                "respuesta": "Debes ingresarlas al momento de registrarte. Si necesitas cambiarlas, actualiza tu perfil."
+            },
+            {
+                "pregunta": "¿Por qué no veo mis eventos después de iniciar sesión?",
+                "respuesta": "Asegúrate de que tus credenciales de SIMA sean correctas y espera unos segundos tras el login para que el sistema sincronice tus eventos."
+            },
+            {
+                "pregunta": "¿Puedo acceder desde el celular?",
+                "respuesta": "Sí, la plataforma es responsiva y próximamente estará disponible como app móvil."
+            }
+        ],
+        "enlaces_utiles": [
+            {"nombre": "Portal SIMA", "url": "https://sima.unicartagena.edu.co/"},
+            {"nombre": "Universidad de Cartagena", "url": "https://www.unicartagena.edu.co/"},
+            {"nombre": "Soporte TIC", "url": "https://www.unicartagena.edu.co/soporte-tic"}
+        ]
+    }
+    return jsonify(ayuda), 200

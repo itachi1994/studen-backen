@@ -1,5 +1,5 @@
-# Entorno virtual
-venv/
+u# Entorno virtual
+ñvenv/
 
 # Archivos de entorno
 .env
@@ -21,3 +21,4 @@ __pycache__/
 *.log
 *.pot
 *.pyc
+node_modules
