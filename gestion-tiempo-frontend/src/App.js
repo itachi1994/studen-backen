@@ -5,6 +5,9 @@ import Dashboard from "./components/Dashboard";
 import EventsList from "./components/EventsList";
 import ChatbotBook from "./components/ChatbotBook";
 import Help from "./components/Help";
+import Calendar from "./components/Calendar";
+import Planner from "./components/Planner";
+import SubjectManager from "./components/SubjectManager";
 import { FaComments } from "react-icons/fa"; // Mejor icono para el botón flotante
 import './index.css';
 
@@ -119,12 +122,18 @@ function App() {
         <button onClick={handleLogout} className="uc-logout-btn">Cerrar sesión</button>
       </header>
       <nav className="uc-nav">
-        <button className={activeTab === "dashboard" ? "active" : ""} onClick={() => setActiveTab("dashboard")}>Panel</button>
-        <button className={activeTab === "events" ? "active" : ""} onClick={() => setActiveTab("events")}>Eventos</button>
-        <button className={activeTab === "help" ? "active" : ""} onClick={() => setActiveTab("help")}>Ayuda</button>
+        <button className={activeTab === "dashboard" ? "active" : ""} onClick={() => setActiveTab("dashboard")}>📊 Dashboard</button>
+        <button className={activeTab === "planner" ? "active" : ""} onClick={() => setActiveTab("planner")}>📋 Planificador</button>
+        <button className={activeTab === "calendar" ? "active" : ""} onClick={() => setActiveTab("calendar")}>📅 Calendario</button>
+        <button className={activeTab === "subjects" ? "active" : ""} onClick={() => setActiveTab("subjects")}>📚 Materias</button>
+        <button className={activeTab === "events" ? "active" : ""} onClick={() => setActiveTab("events")}>🎯 Eventos</button>
+        <button className={activeTab === "help" ? "active" : ""} onClick={() => setActiveTab("help")}>❓ Ayuda</button>
       </nav>
       <main className="uc-content">
         {activeTab === "dashboard" && <Dashboard token={token} />}
+        {activeTab === "planner" && <Planner token={token} />}
+        {activeTab === "calendar" && <Calendar token={token} />}
+        {activeTab === "subjects" && <SubjectManager token={token} />}
         {activeTab === "events" && <EventsList token={token} />}
         {activeTab === "help" && <Help />}
       </main>

@@ -14,5 +14,6 @@ class Subject(db.Model):
     priority    = db.Column(db.Integer, default=3)  # Opcional
     weekly_hours= db.Column(db.Integer)             # Opcional
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    color       = db.Column(db.String(20))          # Nuevo campo para color
 
     user = db.relationship("User", backref=db.backref("subjects", cascade="all,delete"))

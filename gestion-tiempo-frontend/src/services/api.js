@@ -81,3 +81,142 @@ export async function getAllEvents(token, mes = "", ano = "") {
   });
   return res.json();
 }
+
+// Funciones para manejar materias (subjects)
+export async function createSubject(token, subjectData) {
+  const res = await fetch(`${API_URL}/subjects`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(subjectData),
+  });
+  
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || 'Error al crear materia');
+  }
+  
+  return res.json();
+}
+
+export async function getSubjects(token) {
+  const res = await fetch(`${API_URL}/subjects`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return res.json();
+}
+
+export async function updateSubject(token, subjectId, subjectData) {
+  const res = await fetch(`${API_URL}/subjects/${subjectId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(subjectData),
+  });
+  return res.json();
+}
+
+export async function deleteSubject(token, subjectId) {
+  const res = await fetch(`${API_URL}/subjects/${subjectId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return res.json();
+}
+
+// Funciones adicionales para tareas
+export async function createTask(token, taskData) {
+  const res = await fetch(`${API_URL}/task`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(taskData),
+  });
+  return res.json();
+}
+
+export async function updateTask(token, taskId, taskData) {
+  const res = await fetch(`${API_URL}/task/${taskId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(taskData),
+  });
+  return res.json();
+}
+
+export async function deleteTask(token, taskId) {
+  const res = await fetch(`${API_URL}/task/${taskId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return res.json();
+}
+
+export async function getTasksByFilters(token, filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.status) params.append('status', filters.status);
+  if (filters.priority) params.append('priority', filters.priority);
+  if (filters.from_date) params.append('from_date', filters.from_date);
+  if (filters.to_date) params.append('to_date', filters.to_date);
+  
+  const url = `${API_URL}/task${params.toString() ? '?' + params.toString() : ''}`;
+  
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return res.json();
+}
+
+export async function generateStudySchedule(token) {
+  const res = await fetch(`${API_URL}/planning/schedule/generate`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return res.json();
+}
+
+export async function getAvailability(token) {
+  const res = await fetch(`${API_URL}/availability`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+  return res.json();
+}
+
+export async function createAvailability(token, availabilityData) {
+  const res = await fetch(`${API_URL}/availability`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(availabilityData),
+  });
+  return res.json();
+}

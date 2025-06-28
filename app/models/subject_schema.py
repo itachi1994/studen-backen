@@ -9,4 +9,5 @@ class SubjectSchema(ma.Schema):
     credits    = fields.Integer(required=False)
     difficulty = fields.Integer(required=False, validate=validate.Range(min=1, max=5))
     weekly_hours = fields.Integer(required=True, validate=validate.Range(min=1, max=40))
-    priority     = fields.Integer(required=False, validate=validate.Range(min=1, max=5))
+    priority    = fields.Integer(required=False, validate=validate.Range(min=1, max=5))
+    color      = fields.String(required=False)

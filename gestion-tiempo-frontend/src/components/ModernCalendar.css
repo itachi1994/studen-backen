@@ -1,0 +1,135 @@
+.modern-calendar-container {
+  display: flex;
+  flex-direction: row;
+  gap: 32px;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 30px 20px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.10);
+}
+
+.subjects-legend-modern {
+  min-width: 220px;
+  max-width: 220px;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.subjects-grid-modern {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.subject-item-modern {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.subject-color-modern {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.subject-info-modern {
+  display: flex;
+  flex-direction: column;
+}
+.subject-name-modern {
+  font-weight: 600;
+  font-size: 14px;
+}
+.subject-details-modern {
+  font-size: 11px;
+  color: #666;
+}
+
+.calendar-panel-modern {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.react-calendar-modern {
+  width: 320px;
+  min-width: 320px;
+  max-width: 100%;
+  border: none;
+  font-family: inherit;
+  font-size: 15px;
+  margin-bottom: 18px;
+}
+.react-calendar-modern .react-calendar__tile {
+  min-height: 38px;
+  padding: 4px 0 0 0;
+  position: relative;
+}
+.tile-content-modern {
+  display: flex;
+  gap: 3px;
+  margin-top: 2px;
+  justify-content: center;
+}
+.dot-task-modern {
+  width: 7px;
+  height: 7px;
+  background: #ff6b6b;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-event-modern {
+  width: 7px;
+  height: 7px;
+  background: #667eea;
+  border-radius: 50%;
+  display: inline-block;
+}
+.day-details-modern {
+  margin-top: 10px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 14px 12px;
+  box-shadow: 0 2px 8px rgba(102,126,234,0.08);
+  font-size: 14px;
+  width: 100%;
+}
+.detail-section-modern {
+  margin-bottom: 10px;
+}
+.detail-item-modern {
+  margin-bottom: 6px;
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.item-title-modern {
+  font-weight: 600;
+}
+.item-subject-modern {
+  background: #667eea;
+  color: white;
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.item-time-modern {
+  background: #e3f2fd;
+  color: #1565c0;
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.no-items-modern {
+  color: #999;
+  font-style: italic;
+  margin-top: 6px;
+  font-size: 13px;
+}
