@@ -220,3 +220,37 @@ export async function createAvailability(token, availabilityData) {
   });
   return res.json();
 }
+
+// Guarda los bloques del horario generado por IA como tareas
+export async function saveAIScheduleAsTasks(token, aiSchedule) {
+  // aiSchedule es un objeto con días como claves y arrays de bloques como valores
+  const promises = [];
+  Object.entries(aiSchedule).forEach(([day, blocks]) => {
+    blocks.forEach(block => {
+      // Intentar extraer fecha y hora del bloque
+      // Se asume que block tiene 'title', 'block' o 'time' y opcionalmente 'description'
+      let due_date = null;
+      if (block.time) {
+        // Si block.time es '08:00-10:00', tomar la hora inicial
+        const [start] = block.time.split('-');
+        // Convertir el día a fecha próxima
+        const now = new Date();
+        const daysOfWeek = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+        let dayIndex = daysOfWeek.findIndex(d => d.toLowerCase() === day.toLowerCase());
+        if (dayIndex === -1) dayIndex = 1; // fallback lunes
+        // Buscar la próxima fecha para ese día
+        let date = new Date(now);
+        date.setDate(now.getDate() + ((7 + dayIndex - now.getDay()) % 7));
+        due_date = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}T${start}:00`;
+      }
+      const taskData = {
+        title: block.title || block.subject || 'Bloque de estudio IA',
+        description: block.description || '',
+        due_date,
+        priority: 'medium',
+      };
+      promises.push(createTask(token, taskData));
+    });
+  });
+  return Promise.all(promises);
+}

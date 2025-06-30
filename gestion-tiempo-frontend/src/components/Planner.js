@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './Planner.css';
-import { generateStudySchedule, getAvailability, createAvailability } from '../services/api';
+import { generateStudySchedule, getAvailability, createAvailability, saveAIScheduleAsTasks } from '../services/api';
 
 const Planner = ({ token }) => {
   const [activeFilter, setActiveFilter] = useState('all');
@@ -38,7 +38,7 @@ const Planner = ({ token }) => {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityError, setAvailabilityError] = useState(null);
 
-  const hourOptions = Array.from({length: 24}, (_, i) => (i < 10 ? '0' : '') + i);
+  const hourOptions = Array.from({ length: 24 }, (_, i) => (i < 10 ? '0' : '') + i);
   const minuteOptions = ['00', '15', '30', '45'];
 
   const filters = [
@@ -72,27 +72,12 @@ const Planner = ({ token }) => {
         }
       });
 
-      // Obtener eventos del calendario
-      const calendarResponse = await fetch(
-        `http://localhost:5000/api/calendar/data?month=${selectedDate.getMonth() + 1}&year=${selectedDate.getFullYear()}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      const tasksData = tasksResponse.ok ? await tasksResponse.json() : { tasks: [] };
+      const tasksData = tasksResponse.ok ? await tasksResponse.json() : [];
       const subjectsData = subjectsResponse.ok ? await subjectsResponse.json() : { subjects: [] };
-      const calendarData = calendarResponse.ok ? await calendarResponse.json() : { calendar_data: {}, subjects: [] };
-      // Extraer todas las tareas de calendar_data
-      const allCalendarTasks = Object.values(calendarData.calendar_data || {})
-        .flatMap(day => day.tasks || []);
       setData({
-        tasks: allCalendarTasks,
-        subjects: subjectsData.subjects || calendarData.subjects || [],
-        events: Object.values(calendarData.calendar_data || {}).flatMap(day => day.events || [])
+        tasks: Array.isArray(tasksData) ? tasksData : (tasksData.tasks || []),
+        subjects: Array.isArray(subjectsData) ? subjectsData : (subjectsData.subjects || []),
+        events: []
       });
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -113,18 +98,18 @@ const Planner = ({ token }) => {
           const taskDate = new Date(task.due_date);
           const taskDay = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
           return taskDay.getTime() === today.getTime();
-        
+
         case 'week':
           if (!task.due_date) return false;
           const dueDate = new Date(task.due_date);
           return dueDate >= today && dueDate <= weekLater;
-        
+
         case 'urgent':
           return task.priority === 'high' && task.status === 'pending';
-        
+
         case 'done':
           return task.status === 'done';
-        
+
         default:
           return true;
       }
@@ -171,7 +156,7 @@ const Planner = ({ token }) => {
   const toggleTaskStatus = async (task) => {
     try {
       const newStatus = task.status === 'pending' ? 'done' : 'pending';
-      
+
       const response = await fetch(`http://localhost:5000/api/task/${task.id}`, {
         method: 'PUT',
         headers: {
@@ -202,10 +187,18 @@ const Planner = ({ token }) => {
   };
 
   const getTasksForDate = (date) => {
-    const dateStr = date.toDateString();
+    // Comparar año, mes y día explícitamente para evitar problemas de zona horaria
+    const y = date.getFullYear();
+    const m = date.getMonth();
+    const d = date.getDate();
     return data.tasks.filter(task => {
       if (!task.due_date) return false;
-      return new Date(task.due_date).toDateString() === dateStr;
+      const tDate = new Date(task.due_date);
+      return (
+        tDate.getFullYear() === y &&
+        tDate.getMonth() === m &&
+        tDate.getDate() === d
+      );
     });
   };
 
@@ -343,13 +336,13 @@ const Planner = ({ token }) => {
       <div className="planner-header">
         <h2>📋 Planificador de Estudio</h2>
         <div className="planner-actions">
-          <button 
+          <button
             className="btn-primary"
             onClick={() => setShowTaskForm(true)}
           >
             + Nueva Tarea
           </button>
-          <button 
+          <button
             className="btn-ai"
             onClick={() => setShowAI(!showAI)}
           >
@@ -360,24 +353,55 @@ const Planner = ({ token }) => {
 
       {/* Filtros */}
       <div className="planner-filters">
-        {filters.map(filter => (
-          <button
-            key={filter.key}
-            className={`filter-btn ${activeFilter === filter.key ? 'active' : ''}`}
-            style={{
-              '--filter-color': filter.color,
-              backgroundColor: activeFilter === filter.key ? filter.color : 'transparent',
-              color: activeFilter === filter.key ? 'white' : filter.color,
-              borderColor: filter.color
-            }}
-            onClick={() => setActiveFilter(filter.key)}
-          >
-            {filter.icon} {filter.label}
-            <span className="filter-count">
-              {filter.key === 'all' ? data.tasks.length : getFilteredTasks().length}
-            </span>
-          </button>
-        ))}
+        {filters.map(filter => {
+          // Calcular el conteo para cada filtro de forma independiente
+          let count = 0;
+          if (filter.key === 'all') {
+            count = data.tasks.length;
+          } else {
+            // Simular el filtro para cada botón
+            count = data.tasks.filter(task => {
+              const now = new Date();
+              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const weekLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+              switch (filter.key) {
+                case 'today':
+                  if (!task.due_date) return false;
+                  const taskDate = new Date(task.due_date);
+                  const taskDay = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
+                  return taskDay.getTime() === today.getTime();
+                case 'week':
+                  if (!task.due_date) return false;
+                  const dueDate = new Date(task.due_date);
+                  return dueDate >= today && dueDate <= weekLater;
+                case 'urgent':
+                  return task.priority === 'high' && task.status === 'pending';
+                case 'done':
+                  return task.status === 'done';
+                default:
+                  return true;
+              }
+            }).length;
+          }
+          return (
+            <button
+              key={filter.key}
+              className={`filter-btn ${activeFilter === filter.key ? 'active' : ''}`}
+              style={{
+                '--filter-color': filter.color,
+                backgroundColor: activeFilter === filter.key ? filter.color : 'transparent',
+                color: activeFilter === filter.key ? 'white' : filter.color,
+                borderColor: filter.color
+              }}
+              onClick={() => setActiveFilter(filter.key)}
+            >
+              {filter.icon} {filter.label}
+              <span className="filter-count">
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Layout principal */}
@@ -399,15 +423,17 @@ const Planner = ({ token }) => {
                       <h4 className="task-title">{task.title}</h4>
                       {task.description && <p className="task-description">{task.description}</p>}
                       <div className="task-meta">
+                        {task.due_date && (
+                          <div className="task-due-date" style={{ marginTop: 4, fontSize: '0.95em', color: '#888' }}>
+                            📅 {new Date(task.due_date).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
+
                         {task.subject_name && (
                           <span className="task-subject">{task.subject_name}</span>
                         )}
-                        {task.due_date && (
-                          <span className="task-due-date">
-                            📅 {new Date(task.due_date).toLocaleDateString('es-ES')}
-                          </span>
-                        )}
                       </div>
+
                     </div>
                     <div className="task-actions">
                       <button
@@ -449,9 +475,8 @@ const Planner = ({ token }) => {
                 {generateMiniCalendar().map((dayInfo, index) => (
                   <div
                     key={index}
-                    className={`calendar-day ${dayInfo ? '' : 'empty'} ${
-                      dayInfo?.isSelected ? 'selected' : ''
-                    } ${dayInfo?.isToday ? 'today' : ''} ${dayInfo?.tasksCount > 0 ? 'has-tasks' : ''}`}
+                    className={`calendar-day ${dayInfo ? '' : 'empty'} ${dayInfo?.isSelected ? 'selected' : ''
+                      } ${dayInfo?.isToday ? 'today' : ''} ${dayInfo?.tasksCount > 0 ? 'has-tasks' : ''}`}
                     onClick={() => dayInfo && setSelectedDate(dayInfo.date)}
                   >
                     {dayInfo && (
@@ -483,9 +508,9 @@ const Planner = ({ token }) => {
                 getTasksForDate(selectedDate).map(task => (
                   <div key={task.id} className={`schedule-item ${task.status}`}>
                     <div className="schedule-time">
-                      {task.due_date ? new Date(task.due_date).toLocaleTimeString('es-ES', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                      {task.due_date ? new Date(task.due_date).toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit'
                       }) : 'Todo el día'}
                     </div>
                     <div className="schedule-task">
@@ -513,14 +538,22 @@ const Planner = ({ token }) => {
                 </div>
               ) : (
                 data.subjects.map(subject => {
-                  const subjectTasks = data.tasks.filter(task => task.subject_id === subject.id);
-                  const completedTasks = subjectTasks.filter(task => task.status === 'done').length;
+                  // Filtrar tareas que pertenecen a la materia, considerando subject_id y subjects_id
+                  const subjectTasks = data.tasks.filter(task => {
+                    // Puede venir como subject_id o subjects_id
+                    return (
+                      task.subject_id === subject.id ||
+                      task.subjects_id === subject.id
+                    );
+                  });
+                  // Considerar como completadas las que tengan status 'done' o 'completed'
+                  const completedTasks = subjectTasks.filter(task => task.status === 'done' || task.status === 'completed').length;
                   const progress = subjectTasks.length > 0 ? (completedTasks / subjectTasks.length) * 100 : 0;
 
                   return (
                     <div key={subject.id} className="subject-card">
                       <div className="subject-header">
-                        <div 
+                        <div
                           className="subject-color"
                           style={{ backgroundColor: subject.color || '#667eea' }}
                         ></div>
@@ -540,7 +573,7 @@ const Planner = ({ token }) => {
                         </div>
                       </div>
                       <div className="subject-progress">
-                        <div 
+                        <div
                           className="progress-bar"
                           style={{ width: `${progress}%`, backgroundColor: subject.color || '#667eea' }}
                         ></div>
@@ -619,7 +652,7 @@ const Planner = ({ token }) => {
                 <input
                   type="text"
                   value={taskForm.title}
-                  onChange={(e) => setTaskForm({...taskForm, title: e.target.value})}
+                  onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
                   required
                   placeholder="Título de la tarea"
                 />
@@ -628,7 +661,7 @@ const Planner = ({ token }) => {
                 <label>Descripción</label>
                 <textarea
                   value={taskForm.description}
-                  onChange={(e) => setTaskForm({...taskForm, description: e.target.value})}
+                  onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
                   placeholder="Descripción opcional"
                   rows="3"
                 />
@@ -639,14 +672,14 @@ const Planner = ({ token }) => {
                   <input
                     type="datetime-local"
                     value={taskForm.due_date}
-                    onChange={(e) => setTaskForm({...taskForm, due_date: e.target.value})}
+                    onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
                   />
                 </div>
                 <div className="form-group">
                   <label>Prioridad</label>
                   <select
                     value={taskForm.priority}
-                    onChange={(e) => setTaskForm({...taskForm, priority: e.target.value})}
+                    onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
                   >
                     <option value="low">Baja</option>
                     <option value="medium">Media</option>
@@ -658,7 +691,7 @@ const Planner = ({ token }) => {
                 <label>Materia</label>
                 <select
                   value={taskForm.subject_id}
-                  onChange={(e) => setTaskForm({...taskForm, subject_id: e.target.value})}
+                  onChange={(e) => setTaskForm({ ...taskForm, subject_id: e.target.value })}
                 >
                   <option value="">Sin materia</option>
                   {data.subjects.map(subject => (
@@ -694,8 +727,19 @@ const Planner = ({ token }) => {
               <pre>{JSON.stringify(aiSchedule, null, 2)}</pre>
             </div>
             <div className="modal-actions">
-              <button className="btn-primary" onClick={() => setShowScheduleModal(false)}>
-                Aceptar
+              <button
+                className="btn-primary"
+                onClick={async () => {
+                  if (aiSchedule) {
+                    await saveAIScheduleAsTasks(token, aiSchedule);
+                    setShowScheduleModal(false);
+                    fetchData(); // Recarga las tareas/eventos
+                  } else {
+                    setShowScheduleModal(false);
+                  }
+                }}
+              >
+                Aceptar y guardar en calendario
               </button>
             </div>
           </div>
@@ -715,7 +759,7 @@ const Planner = ({ token }) => {
                 <div className="availability-grid">
                   {availabilityForm.map((day, dayIdx) => (
                     <div key={dayIdx} className="availability-day">
-                      <label style={{display:'flex',alignItems:'center',gap:8}}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input
                           type="checkbox"
                           checked={day.enabled}
@@ -764,7 +808,7 @@ const Planner = ({ token }) => {
                   ))}
                 </div>
                 {availabilityError && <div className="ai-error">{availabilityError}</div>}
-                <div style={{marginTop: 16, textAlign: 'right'}}>
+                <div style={{ marginTop: 16, textAlign: 'right' }}>
                   <button className="btn-primary" type="submit" disabled={availabilityLoading}>
                     {availabilityLoading ? 'Guardando...' : 'Guardar disponibilidad'}
                   </button>
